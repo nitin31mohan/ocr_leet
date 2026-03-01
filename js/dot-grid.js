@@ -47,7 +47,17 @@ class DotGrid {
  * @returns {Promise<DotGrid|null>} DotGrid on success, null if detection fails.
  */
 async function detectDotGrid(imgElement) {
-  const src = cv.imread(imgElement);
+  // cv.imread reads the CSS display size, not the natural resolution.
+  // Draw at natural size first so we always process the full-res image.
+  const _canvas = document.createElement('canvas');
+  _canvas.width = imgElement.naturalWidth;
+  _canvas.height = imgElement.naturalHeight;
+  const _ctx = _canvas.getContext('2d');
+  _ctx.drawImage(imgElement, 0, 0);
+  const src = cv.matFromImageData(
+    _ctx.getImageData(0, 0, _canvas.width, _canvas.height)
+  );
+
   let mat = src;
   let scaleFactor = 1;
 

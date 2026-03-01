@@ -74,11 +74,16 @@ async function detectDotGrid(imgElement) {
     gray = new cv.Mat();
     cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
 
+    // Sample 9 pixel values (3×3 grid) for debug diagnostics
+    const _sR = [0.25, 0.5, 0.75].map(f => Math.floor(gray.rows * f));
+    const _sC = [0.25, 0.5, 0.75].map(f => Math.floor(gray.cols * f));
+    const _samplePx = _sR.flatMap(r => _sC.map(c => gray.ucharPtr(r, c)[0]));
+
     // 3. Isolate dots: Boox dots are light gray (~150–230) on white paper.
     //    Ink is dark (0–100). Threshold [130, 235] captures dots and excludes both.
     dotMask = new cv.Mat();
     lowerMat = new cv.Mat(gray.rows, gray.cols, gray.type(), new cv.Scalar(130));
-    upperMat = new cv.Mat(gray.rows, gray.cols, gray.type(), new cv.Scalar(235));
+    upperMat = new cv.Mat(gray.rows, gray.cols, gray.type(), new cv.Scalar(253));
     cv.inRange(gray, lowerMat, upperMat, dotMask);
 
     // 4. Find contours on the dot mask
@@ -88,6 +93,7 @@ async function detectDotGrid(imgElement) {
 
     // 5. Filter contours to identify dots
     const dots = [];
+    let _dArea = 0, _dCirc = 0;
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i);
       const area = cv.contourArea(contour);
@@ -97,6 +103,7 @@ async function detectDotGrid(imgElement) {
         contour.delete();
         continue;
       }
+      _dArea++;
 
       const perimeter = cv.arcLength(contour, true);
       if (perimeter === 0) {
@@ -110,6 +117,7 @@ async function detectDotGrid(imgElement) {
         contour.delete();
         continue;
       }
+      _dCirc++;
 
       // Centroid via image moments
       const M = cv.moments(contour);
@@ -123,7 +131,14 @@ async function detectDotGrid(imgElement) {
       contour.delete();
     }
 
-    // 6. Check minimum dot count
+    // 6. Check minimum dot count — store diagnostics first
+    window._dotGridDiag = {
+      size: src.cols + 'x' + src.rows,
+      totalContours: contours.size(),
+      afterArea: _dArea,
+      afterCirc: _dCirc,
+      px: _samplePx,
+    };
     if (dots.length < 20) {
       console.warn('dot-grid: insufficient dots detected:', dots.length);
       return null;

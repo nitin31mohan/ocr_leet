@@ -57,19 +57,27 @@ async function handleTestGrid() {
     const grid = await detectDotGrid(img);
     if (!grid) {
       out.textContent = 'FAIL: grid is null (too few dots detected)';
-      return;
+    } else {
+      out.textContent = [
+        'xPitch: ' + grid.xPitch,
+        'yPitch: ' + grid.yPitch,
+        'dotCount: ' + grid.dotCount,
+        'xOrigin: ' + grid.xOrigin.toFixed(1),
+        'yOrigin: ' + grid.yOrigin.toFixed(1),
+        'indentAt(origin): "' + grid.indentationAt(grid.xOrigin) + '"',
+        'indentAt(origin+4col): "' + grid.indentationAt(grid.xOrigin + grid.xPitch * 4) + '"',
+      ].join('\n');
     }
-    out.textContent = [
-      'xPitch: ' + grid.xPitch,
-      'yPitch: ' + grid.yPitch,
-      'dotCount: ' + grid.dotCount,
-      'xOrigin: ' + grid.xOrigin.toFixed(1),
-      'yOrigin: ' + grid.yOrigin.toFixed(1),
-      'indentAt(origin): "' + grid.indentationAt(grid.xOrigin) + '"',
-      'indentAt(origin+4col): "' + grid.indentationAt(grid.xOrigin + grid.xPitch * 4) + '"',
-    ].join('\n');
   } catch (err) {
     out.textContent = 'ERROR: ' + err.message;
+  }
+  const d = window._dotGridDiag;
+  if (d) {
+    out.textContent += '\n\n[diag] img:' + d.size +
+      ' cnt:' + d.totalContours +
+      ' area:' + d.afterArea +
+      ' circ:' + d.afterCirc +
+      '\npx(3x3):' + d.px.join(',');
   }
 }
 

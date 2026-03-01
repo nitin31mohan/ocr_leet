@@ -11,6 +11,8 @@ const SHELL_FILES = [
   BASE + 'css/main.css',
   BASE + 'js/app.js',
   BASE + 'js/share-target.js',
+  BASE + 'js/dot-grid.js',
+  BASE + 'js/ocr.js',
   BASE + 'icons/icon-192.svg',
   BASE + 'icons/icon-512.svg'
 ];
@@ -70,8 +72,8 @@ self.addEventListener('fetch', event => {
   // Only cache-intercept GET requests
   if (request.method !== 'GET') return;
 
-  // CDN assets (OpenCV.js): cache-first into CDN_CACHE, independent of app shell
-  if (request.url.includes('jsdelivr.net')) {
+  // CDN assets (OpenCV.js, Tesseract.js + tessdata): cache-first into CDN_CACHE
+  if (request.url.includes('jsdelivr.net') || request.url.includes('tessdata.projectnaptha.com')) {
     event.respondWith(
       (async () => {
         const cached = await caches.match(request);

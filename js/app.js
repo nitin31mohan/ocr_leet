@@ -1,6 +1,5 @@
 // app.js — main application entry point.
 // Handles: shared image loading, UI state, and discard flow.
-// OCR, dot-grid processing, and LeetCode submission added in later phases.
 
 document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
@@ -19,8 +18,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btn-discard').addEventListener('click', handleDiscard);
   document.getElementById('btn-submit').addEventListener('click', handleSubmit);
-  // DEBUG: remove before Phase 4
-  document.getElementById('btn-test-grid').addEventListener('click', handleTestGrid);
 });
 
 async function handleSharedImage() {
@@ -31,10 +28,27 @@ async function handleSharedImage() {
   }
 
   const img = document.getElementById('shared-image');
-  img.src = objectUrl;
+
+  // Load image and wait for it to be fully decoded before processing
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = objectUrl;
+  });
 
   showSection('image-preview');
-  // OCR will be triggered here in Phase 4 — placeholder for now
+
+  const ocrLoading = document.getElementById('ocr-loading');
+  ocrLoading.hidden = false;
+
+  try {
+    const grid = await detectDotGrid(img);
+    const code = await runOCR(img, grid);
+    document.getElementById('parsed-code').textContent = code;
+    showSection('ocr-result');
+  } finally {
+    ocrLoading.hidden = true;
+  }
 }
 
 function handleDiscard() {
@@ -46,39 +60,6 @@ function handleDiscard() {
 function handleSubmit() {
   // LeetCode submission wired up in Phase 6
   console.log('Submit — not yet implemented');
-}
-
-// DEBUG: remove before Phase 4
-async function handleTestGrid() {
-  const out = document.getElementById('debug-grid-output');
-  out.textContent = 'Running…';
-  const img = document.getElementById('shared-image');
-  try {
-    const grid = await detectDotGrid(img);
-    if (!grid) {
-      out.textContent = 'FAIL: grid is null (too few dots detected)';
-    } else {
-      out.textContent = [
-        'xPitch: ' + grid.xPitch,
-        'yPitch: ' + grid.yPitch,
-        'dotCount: ' + grid.dotCount,
-        'xOrigin: ' + grid.xOrigin.toFixed(1),
-        'yOrigin: ' + grid.yOrigin.toFixed(1),
-        'indentAt(origin): "' + grid.indentationAt(grid.xOrigin) + '"',
-        'indentAt(origin+4col): "' + grid.indentationAt(grid.xOrigin + grid.xPitch * 4) + '"',
-      ].join('\n');
-    }
-  } catch (err) {
-    out.textContent = 'ERROR: ' + err.message;
-  }
-  const d = window._dotGridDiag;
-  if (d) {
-    out.textContent += '\n\n[diag] img:' + d.size +
-      ' cnt:' + d.totalContours +
-      ' area:' + d.afterArea +
-      ' circ:' + d.afterCirc +
-      '\npx(3x3):' + d.px.join(',');
-  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

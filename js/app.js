@@ -42,8 +42,8 @@ async function handleSharedImage() {
   ocrLoading.hidden = false;
 
   try {
-    const grid = await detectDotGrid(img);
-    const code = await runOCR(img, grid);
+    const { grid, canvas } = await detectDotGridAndMask(img);
+    const code = await runOCR(canvas, grid);
     document.getElementById('parsed-code').textContent = code;
     showSection('ocr-result');
   } finally {

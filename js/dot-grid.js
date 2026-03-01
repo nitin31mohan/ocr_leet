@@ -41,26 +41,28 @@ class DotGrid {
 // ── Detection ─────────────────────────────────────────────────────────────────
 
 /**
- * Detect the dot-grid in a Boox Notes export image.
+ * Internal: run the dot-finding pipeline on imgElement.
+ * Returns { dots: [{x,y}[]], naturalWidth, naturalHeight } without cleanup side-effects.
+ * All OpenCV Mats are cleaned up in a finally block.
  *
  * @param {HTMLImageElement} imgElement
- * @returns {Promise<DotGrid|null>} DotGrid on success, null if detection fails.
+ * @returns {{ dots: {x:number, y:number}[], naturalWidth: number, naturalHeight: number }}
  */
-async function detectDotGrid(imgElement) {
-  // cv.imread reads the CSS display size, not the natural resolution.
-  // Draw at natural size first so we always process the full-res image.
+async function _findDots(imgElement) {
+  const naturalWidth = imgElement.naturalWidth;
+  const naturalHeight = imgElement.naturalHeight;
+
   const _canvas = document.createElement('canvas');
-  _canvas.width = imgElement.naturalWidth;
-  _canvas.height = imgElement.naturalHeight;
+  _canvas.width = naturalWidth;
+  _canvas.height = naturalHeight;
   const _ctx = _canvas.getContext('2d');
   _ctx.drawImage(imgElement, 0, 0);
   const src = cv.matFromImageData(
-    _ctx.getImageData(0, 0, _canvas.width, _canvas.height)
+    _ctx.getImageData(0, 0, naturalWidth, naturalHeight)
   );
 
   let mat = src;
   let scaleFactor = 1;
-
   let gray = null;
   let dotMask = null;
   let contours = null;
@@ -69,8 +71,7 @@ async function detectDotGrid(imgElement) {
   let upperMat = null;
 
   try {
-    // 1. Downsample if very large (Boox Go exports are ~1860×2480; keep those at full res
-    //    so small dots (~3–4px dia) survive the area filter. Only scale truly huge images.)
+    // Downsample only if truly enormous (Boox Go exports are ~1860×2480 — keep full res)
     const maxDim = Math.max(src.rows, src.cols);
     if (maxDim > 3000) {
       scaleFactor = 3000 / maxDim;
@@ -80,68 +81,41 @@ async function detectDotGrid(imgElement) {
       cv.resize(src, mat, new cv.Size(newWidth, newHeight), 0, 0, cv.INTER_AREA);
     }
 
-    // 2. Convert to grayscale
     gray = new cv.Mat();
     cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
 
-    // Sample 9 pixel values (3×3 grid) for debug diagnostics
     const _sR = [0.25, 0.5, 0.75].map(f => Math.floor(gray.rows * f));
     const _sC = [0.25, 0.5, 0.75].map(f => Math.floor(gray.cols * f));
     const _samplePx = _sR.flatMap(r => _sC.map(c => gray.ucharPtr(r, c)[0]));
 
-    // 3. Isolate dots: Boox dots are light gray (~150–230) on white paper.
-    //    Ink is dark (0–100). Threshold [130, 235] captures dots and excludes both.
+    // Boox dots: light gray ~150–245 on white paper. Ink is dark (0–100).
     dotMask = new cv.Mat();
     lowerMat = new cv.Mat(gray.rows, gray.cols, gray.type(), new cv.Scalar(130));
     upperMat = new cv.Mat(gray.rows, gray.cols, gray.type(), new cv.Scalar(253));
     cv.inRange(gray, lowerMat, upperMat, dotMask);
 
-    // 4. Find contours on the dot mask
     contours = new cv.MatVector();
     hierarchy = new cv.Mat();
     cv.findContours(dotMask, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-    // 5. Filter contours to identify dots
     const dots = [];
     let _dArea = 0, _dCirc = 0;
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i);
       const area = cv.contourArea(contour);
-
-      // Too small = noise; too large = ink bleed or artefact
-      if (area < 3 || area > 600) {
-        contour.delete();
-        continue;
-      }
+      if (area < 3 || area > 600) { contour.delete(); continue; }
       _dArea++;
-
       const perimeter = cv.arcLength(contour, true);
-      if (perimeter === 0) {
-        contour.delete();
-        continue;
-      }
-
-      // Circularity: 1.0 = perfect circle, <0.4 = likely a handwriting stroke
+      if (perimeter === 0) { contour.delete(); continue; }
       const circularity = (4 * Math.PI * area) / (perimeter * perimeter);
-      if (circularity < 0.4) {
-        contour.delete();
-        continue;
-      }
+      if (circularity < 0.4) { contour.delete(); continue; }
       _dCirc++;
-
-      // Centroid via image moments
       const M = cv.moments(contour);
-      if (M.m00 === 0) {
-        contour.delete();
-        continue;
-      }
-      const cx = (M.m10 / M.m00) / scaleFactor;
-      const cy = (M.m01 / M.m00) / scaleFactor;
-      dots.push({ x: cx, y: cy });
+      if (M.m00 === 0) { contour.delete(); continue; }
+      dots.push({ x: (M.m10 / M.m00) / scaleFactor, y: (M.m01 / M.m00) / scaleFactor });
       contour.delete();
     }
 
-    // 6. Check minimum dot count — store diagnostics first
     window._dotGridDiag = {
       size: src.cols + 'x' + src.rows,
       totalContours: contours.size(),
@@ -149,16 +123,10 @@ async function detectDotGrid(imgElement) {
       afterCirc: _dCirc,
       px: _samplePx,
     };
-    if (dots.length < 20) {
-      console.warn('dot-grid: insufficient dots detected:', dots.length);
-      return null;
-    }
 
-    // 7. Compute grid parameters
-    return computeGridParameters(dots);
+    return { dots, naturalWidth, naturalHeight };
 
   } finally {
-    // Explicit cleanup — OpenCV.js does not GC Mats automatically
     if (mat !== src) mat.delete();
     src.delete();
     if (gray) gray.delete();
@@ -170,13 +138,65 @@ async function detectDotGrid(imgElement) {
   }
 }
 
+/**
+ * Detect the dot-grid in a Boox Notes export image.
+ *
+ * @param {HTMLImageElement} imgElement
+ * @returns {Promise<DotGrid|null>} DotGrid on success, null if detection fails.
+ */
+async function detectDotGrid(imgElement) {
+  const { dots } = await _findDots(imgElement);
+  if (dots.length < 20) {
+    console.warn('dot-grid: insufficient dots detected:', dots.length);
+    return null;
+  }
+  return computeGridParameters(dots);
+}
+
+/**
+ * Detect the dot-grid and produce a canvas with all dots painted white.
+ * Pass the returned canvas to Tesseract instead of the raw image so that
+ * dot-grid noise does not appear as OCR characters.
+ *
+ * Both the DotGrid and the canvas use the same naturalWidth×naturalHeight
+ * coordinate space, so DotGrid.indentationAt(bbox.x0) remains valid.
+ *
+ * @param {HTMLImageElement} imgElement
+ * @returns {Promise<{ grid: DotGrid|null, canvas: HTMLCanvasElement }>}
+ */
+async function detectDotGridAndMask(imgElement) {
+  const { dots, naturalWidth, naturalHeight } = await _findDots(imgElement);
+
+  const grid = (dots.length >= 20) ? computeGridParameters(dots) : null;
+  if (dots.length < 20) {
+    console.warn('dot-grid: insufficient dots detected:', dots.length);
+  }
+
+  // Draw image to canvas, then paint white circles over every detected dot
+  const canvas = document.createElement('canvas');
+  canvas.width = naturalWidth;
+  canvas.height = naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgElement, 0, 0);
+
+  if (dots.length > 0) {
+    // Radius: cover the dot (~2–3px) plus a 2px margin; use xPitch/4 if grid known
+    const radius = grid ? Math.ceil(grid.xPitch / 4) : 5;
+    ctx.fillStyle = '#ffffff';
+    for (const { x, y } of dots) {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+
+  return { grid, canvas };
+}
+
 // ── Grid parameter computation ─────────────────────────────────────────────────
 
 /**
  * Compute xPitch, yPitch, xOrigin, yOrigin from an array of dot centroids.
- *
- * Algorithm: sort coordinates, compute pairwise adjacent differences, bin into
- * 5px buckets, pick the dominant bucket in the valid pitch range [8, 120].
  *
  * @param {{ x: number, y: number }[]} dots
  * @returns {DotGrid|null}
@@ -205,16 +225,14 @@ function computeGridParameters(dots) {
 function dominantPitch(coords) {
   const sorted = [...coords].sort((a, b) => a - b);
 
-  // Pairwise adjacent differences
   const diffs = [];
   for (let i = 1; i < sorted.length; i++) {
     const d = sorted[i] - sorted[i - 1];
-    if (d > 1) diffs.push(d); // skip sub-pixel duplicates
+    if (d > 1) diffs.push(d);
   }
 
   if (diffs.length === 0) return null;
 
-  // Bin into 5px buckets
   const BUCKET = 5;
   const MIN_PITCH = 8;
   const MAX_PITCH = 120;
@@ -228,7 +246,6 @@ function dominantPitch(coords) {
 
   if (Object.keys(bins).length === 0) return null;
 
-  // Return the centre of the most populated bucket
   const best = Object.entries(bins).sort((a, b) => b[1] - a[1])[0];
   return Number(best[0]);
 }

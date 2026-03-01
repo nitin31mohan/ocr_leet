@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btn-discard').addEventListener('click', handleDiscard);
   document.getElementById('btn-submit').addEventListener('click', handleSubmit);
+  // DEBUG: remove before Phase 4
+  document.getElementById('btn-test-grid').addEventListener('click', handleTestGrid);
 });
 
 async function handleSharedImage() {
@@ -44,6 +46,31 @@ function handleDiscard() {
 function handleSubmit() {
   // LeetCode submission wired up in Phase 6
   console.log('Submit — not yet implemented');
+}
+
+// DEBUG: remove before Phase 4
+async function handleTestGrid() {
+  const out = document.getElementById('debug-grid-output');
+  out.textContent = 'Running…';
+  const img = document.getElementById('shared-image');
+  try {
+    const grid = await detectDotGrid(img);
+    if (!grid) {
+      out.textContent = 'FAIL: grid is null (too few dots detected)';
+      return;
+    }
+    out.textContent = [
+      'xPitch: ' + grid.xPitch,
+      'yPitch: ' + grid.yPitch,
+      'dotCount: ' + grid.dotCount,
+      'xOrigin: ' + grid.xOrigin.toFixed(1),
+      'yOrigin: ' + grid.yOrigin.toFixed(1),
+      'indentAt(origin): "' + grid.indentationAt(grid.xOrigin) + '"',
+      'indentAt(origin+4col): "' + grid.indentationAt(grid.xOrigin + grid.xPitch * 4) + '"',
+    ].join('\n');
+  } catch (err) {
+    out.textContent = 'ERROR: ' + err.message;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

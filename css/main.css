@@ -1,0 +1,153 @@
+/* main.css — minimal, e-ink optimised styles.
+   High contrast, no animations, monospace for code.
+   Designed for Boox Go 10.3 (1404×1872, 10.3" screen). */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: #ffffff;
+  --color-fg: #000000;
+  --color-muted: #555555;
+  --color-border: #cccccc;
+  --color-btn-primary: #1a1a1a;
+  --color-btn-primary-fg: #ffffff;
+  --color-btn-secondary: #ffffff;
+  --color-btn-secondary-fg: #1a1a1a;
+  --font-ui: system-ui, sans-serif;
+  --font-code: 'Courier New', Courier, monospace;
+  --spacing: 1.25rem;
+}
+
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-ui);
+  font-size: 18px;           /* larger base size for e-ink readability */
+  line-height: 1.5;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
+header {
+  border-bottom: 2px solid var(--color-fg);
+  padding-bottom: var(--spacing);
+  margin-bottom: var(--spacing);
+}
+
+header h1 {
+  font-family: var(--font-code);
+  font-size: 1.4rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+/* ── Main layout ─────────────────────────────────────────────────────────────── */
+
+#app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+/* ── Placeholder ─────────────────────────────────────────────────────────────── */
+
+#placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--color-border);
+  border-radius: 4px;
+  padding: 2rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* ── Image preview ───────────────────────────────────────────────────────────── */
+
+#image-preview img {
+  max-width: 100%;
+  display: block;
+  border: 1px solid var(--color-border);
+}
+
+/* ── OCR result panel ────────────────────────────────────────────────────────── */
+
+#ocr-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+#problem-number {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+#parsed-code {
+  font-family: var(--font-code);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  background: #f8f8f8;
+  border: 1px solid var(--color-border);
+  padding: var(--spacing);
+  overflow-x: auto;
+  white-space: pre;         /* preserve indentation exactly */
+  -webkit-user-modify: read-only;
+  user-modify: read-only;   /* explicitly non-editable — no IDE-like behaviour */
+}
+
+/* ── Action buttons ──────────────────────────────────────────────────────────── */
+
+#actions {
+  display: flex;
+  gap: 1rem;
+}
+
+button {
+  flex: 1;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+  font-family: var(--font-ui);
+  font-weight: bold;
+  border: 2px solid var(--color-fg);
+  border-radius: 2px;
+  cursor: pointer;
+  /* No transition — e-ink doesn't render animations */
+}
+
+#btn-submit {
+  background: var(--color-btn-primary);
+  color: var(--color-btn-primary-fg);
+}
+
+#btn-discard {
+  background: var(--color-btn-secondary);
+  color: var(--color-btn-secondary-fg);
+}
+
+/* ── Result panel ────────────────────────────────────────────────────────────── */
+
+#result-panel {
+  border: 2px solid var(--color-fg);
+  padding: var(--spacing);
+  font-size: 1rem;
+}
+
+/* ── Utility ─────────────────────────────────────────────────────────────────── */
+
+[hidden] {
+  display: none !important;
+}

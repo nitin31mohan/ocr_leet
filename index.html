@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>ocr-leet</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <header>
+    <h1>ocr-leet</h1>
+  </header>
+
+  <main id="app">
+    <div id="placeholder">
+      <p>Share a written solution from Boox Notes to begin.</p>
+    </div>
+
+    <div id="image-preview" hidden>
+      <img id="shared-image" src="" alt="Shared handwritten page">
+    </div>
+
+    <div id="ocr-result" hidden>
+      <div id="problem-number"></div>
+      <pre id="parsed-code"></pre>
+      <div id="actions">
+        <button id="btn-submit" type="button">Submit to LeetCode</button>
+        <button id="btn-discard" type="button">Discard</button>
+      </div>
+    </div>
+
+    <div id="result-panel" hidden></div>
+  </main>
+
+  <script src="js/share-target.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW registered, scope:', reg.scope))
+        .catch(err => console.error('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>

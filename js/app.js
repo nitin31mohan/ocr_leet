@@ -5,6 +5,12 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
 
+  // Show loading indicator while OpenCV WASM initialises
+  const cvLoading = document.getElementById('cv-loading');
+  cvLoading.hidden = false;
+  await window.opencvReady;
+  cvLoading.hidden = true;
+
   if (params.get('shared') === '1') {
     await handleSharedImage();
     // Clean the query string without reloading

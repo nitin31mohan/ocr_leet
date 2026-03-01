@@ -1,5 +1,6 @@
 const CACHE_NAME = 'ocr-leet-v1';
 const SHARE_CACHE = 'share-target-cache';
+const CDN_CACHE = 'ocr-leet-cdn-v1';
 
 // Derive absolute base URL from scope (handles any deployment path)
 const BASE = self.registration.scope;
@@ -29,7 +30,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME && key !== SHARE_CACHE)
+          .filter(key => key !== CACHE_NAME && key !== SHARE_CACHE && key !== CDN_CACHE)
           .map(key => caches.delete(key))
       )
     ).then(() => self.clients.claim())
@@ -68,6 +69,27 @@ self.addEventListener('fetch', event => {
 
   // Only cache-intercept GET requests
   if (request.method !== 'GET') return;
+
+  // CDN assets (OpenCV.js): cache-first into CDN_CACHE, independent of app shell
+  if (request.url.includes('jsdelivr.net')) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            const cache = await caches.open(CDN_CACHE);
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch {
+          return new Response('Offline — CDN asset unavailable', { status: 503 });
+        }
+      })()
+    );
+    return;
+  }
 
   event.respondWith(
     (async () => {

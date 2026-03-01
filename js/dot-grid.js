@@ -59,10 +59,11 @@ async function detectDotGrid(imgElement) {
   let upperMat = null;
 
   try {
-    // 1. Downsample if large (Boox exports can be 2500×3500px+)
+    // 1. Downsample if very large (Boox Go exports are ~1860×2480; keep those at full res
+    //    so small dots (~3–4px dia) survive the area filter. Only scale truly huge images.)
     const maxDim = Math.max(src.rows, src.cols);
-    if (maxDim > 1500) {
-      scaleFactor = 1500 / maxDim;
+    if (maxDim > 3000) {
+      scaleFactor = 3000 / maxDim;
       const newWidth = Math.round(src.cols * scaleFactor);
       const newHeight = Math.round(src.rows * scaleFactor);
       mat = new cv.Mat();

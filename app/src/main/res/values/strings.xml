@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ocr_leet</string>
+    <string name="status_waiting">Share an image from Boox Notes</string>
+    <string name="status_dimensions">%1$d × %2$d</string>
+    <string name="status_error">Could not load image</string>
+    <string name="status_ocr_running">Reading handwriting…</string>
+    <string name="status_ocr_done">OCR complete — %1$d lines</string>
+    <string name="status_ocr_failed">OCR failed</string>
+</resources>
